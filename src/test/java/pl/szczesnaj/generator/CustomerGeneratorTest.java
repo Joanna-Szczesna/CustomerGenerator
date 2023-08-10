@@ -10,7 +10,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,34 +31,47 @@ class CustomerGeneratorTest {
 
     @Nested
     class PayloadStructure {
-        @Test
-        void customer() {
-            String returnStatement = generator.makeCustomerPayload(PESEL_NUM, MIESZKO, PIERWSZY);
+//        @Test
+//        void customer() {
+//            Map<String, String> person = new HashMap<>();
+//            person.put("peselNumber", PESEL_NUM);
+//            person.put("name", MIESZKO);
+//            person.put("surname", PIERWSZY);
+//            String returnStatement = generator.makePayload(person);
+//
+//            assertThat(returnStatement).contains("""
+//                    {***
+//                    "peselNumber": "11111111111",
+//                    "name": "Mieszko",
+//                    "surname": "Pierwszy"
+//                    }***
+//                    """);
+//        }
 
+        @Test
+        void customer1() {
+            Map<String, String> person = new HashMap<>();
+            person.put("peselNumber", PESEL_NUM);
+            person.put("name", MIESZKO);
+            String returnStatement = generator.makePayload(person);
+
+            assertThat(returnStatement).startsWith("{");
             assertThat(returnStatement).contains("""
-                    {
-                    "peselNumber": "11111111111",
-                    "name": "Mieszko",
-                    "surname": "Pierwszy"
-                    }
-                    """);
+                    "peselNumber": "11111111111\"""");
+            assertThat(returnStatement).contains("""
+                    "name": "Mieszko\"""");
+            assertThat(returnStatement).endsWith("\"}");
+            assertThat(returnStatement).contains("\",\"");
         }
 
         @Test
-        void allContacts() {
-            String returnStatement = generator.makeContactPayload("email@name.com",
-                    "residence", "registered",
-                    "111111111", "222222222");
+        void customer2() {
+            Map<String, String> person = new HashMap<>();
+            person.put("peselNumber", PESEL_NUM);
+            String returnStatement = generator.makePayload(person);
 
             assertThat(returnStatement).contains("""
-                    {
-                        "emailAddress": "email@name.com",
-                        "residenceAddress": "residence",
-                        "registeredAddress": "registered",
-                        "privatePhoneNumber": "111111111",
-                        "businessPhoneNumber": "222222222"
-                    } 
-                            """);
+                    {"peselNumber": "11111111111"}""");
         }
 
         @Test
@@ -68,10 +80,62 @@ class CustomerGeneratorTest {
             contacts.put("privatePhoneNumber", "111111111");
             contacts.put("residenceAddress", "residence");
 
-            String returnStatement = generator.makeContactPayload(contacts);
+            String returnStatement = generator.makePayload(contacts);
             assertThat(returnStatement).contains("""
-                    {"residenceAddress":"residence","privatePhoneNumber":"111111111"}""");
+                    {"residenceAddress": "residence",
+                    "privatePhoneNumber": "111111111"
+                    }""");
         }
+    }
+
+    @Nested
+    class Name {
+        @Test
+        void whenFileNotExist_generatedNamesList_NotEmpty() {
+            List<String> generatedData = generator.getDataFromFile("nonExistFile.csv", NameCSV.class);
+            assertThat(generatedData).isNotEmpty();
+        }
+
+        @Test
+        void generatedNamesList_NotEmpty() {
+            List<String> dataFromFile = generator.getDataFromFile("names_woman.csv", NameCSV.class);
+            assertThat(dataFromFile).isNotEmpty();
+        }
+    }
+
+    @Nested
+    class Surname {
+        @Test
+        void whenFileNotExist_generatedSurnamesList_NotEmpty() {
+            List<String> generatedData = generator.getDataFromFile("nonExistFile.csv", SurnameCSV.class);
+            assertThat(generatedData).isNotEmpty();
+        }
+
+        @Test
+        void generatedSurnamesList_NotEmpty() {
+            List<String> dataFromFile = generator.getDataFromFile("surnames_woman.csv", SurnameCSV.class);
+            assertThat(dataFromFile).isNotEmpty();
+        }
+    }
+
+    @Nested
+    class GenderByPeselNum {
+        @Test
+        void penultimateDigitFromPeselNumberOdd_genderMale() {
+            String manPeselNumber = "02020202232";
+            Gender gender = generator.getGenderFromPeselNumber(manPeselNumber);
+
+            assertEquals(Gender.MALE, gender);
+        }
+        @Test
+        void penultimateDigitFromPeselNumberEven_genderFemale() {
+            String femalePeselNumber = "05050505585";
+            Gender gender = generator.getGenderFromPeselNumber(femalePeselNumber);
+
+            assertEquals(Gender.FEMALE, gender);
+        }
+//02070803628
+
     }
 
     @Nested
@@ -145,23 +209,13 @@ class CustomerGeneratorTest {
 
             assertThat(phoneNumberSize).isIn(Range.closed(5, 11));
         }
+
         @Test
         void generatedPhoneNumberHasOnlyDigits() {
             String phoneNumberSize = generator.generatePhoneNumber();
             boolean onlyDigits = phoneNumberSize.chars().allMatch(Character::isDigit);
 
             assertTrue(onlyDigits);
-        }
-
-        @Test
-        void name() {
-            List<String> allowedContactsMethods = Arrays.asList(
-                    "emailAddress",
-                    "residenceAddress",
-                    "registeredAddress",
-                    "privatePhoneNumber",
-                    "businessPhoneNumber");
-
         }
     }
 }
