@@ -5,11 +5,16 @@
 
 package pl.szczesnaj.generator;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.Range;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,22 +87,34 @@ class CustomerGeneratorTest {
 
             String returnStatement = generator.makePayload(contacts);
             assertThat(returnStatement).contains("""
-                    {"residenceAddress": "residence",
-                    "privatePhoneNumber": "111111111"
-                    }""");
+                    {"residenceAddress": "residence","privatePhoneNumber": "111111111"}""");
+        }
+
+        @Test
+        void correctStructureJson() throws JsonProcessingException {
+            Map<String, String> contacts = new HashMap<>();
+            contacts.put("privatePhoneNumber", "111111111");
+            contacts.put("residenceAddress", "residence");
+
+            String returnStatement = generator.makePayload(contacts);
+
+            JsonMapper mapper = JsonMapper.builder().build();
+            JsonNode jsonNode = mapper.readTree(returnStatement);
+            assertThat(jsonNode).isInstanceOf(ObjectNode.class);
+            //assertThat(jsonNode.asN).isInstanceOf(ObjectNode.class); // make cast to objectNode , check method get attribute etc.
         }
     }
 
     @Nested
     class Name {
         @Test
-        void whenFileNotExist_generatedNamesList_NotEmpty() {
+        void whenFileNotExist_generatedNamesList_NotEmpty() throws IOException {
             List<String> generatedData = generator.getDataFromFile("nonExistFile.csv", NameCSV.class);
             assertThat(generatedData).isNotEmpty();
         }
 
         @Test
-        void generatedNamesList_NotEmpty() {
+        void generatedNamesList_NotEmpty() throws IOException {
             List<String> dataFromFile = generator.getDataFromFile("names_woman.csv", NameCSV.class);
             assertThat(dataFromFile).isNotEmpty();
         }
@@ -106,13 +123,13 @@ class CustomerGeneratorTest {
     @Nested
     class Surname {
         @Test
-        void whenFileNotExist_generatedSurnamesList_NotEmpty() {
+        void whenFileNotExist_generatedSurnamesList_NotEmpty() throws IOException {
             List<String> generatedData = generator.getDataFromFile("nonExistFile.csv", SurnameCSV.class);
             assertThat(generatedData).isNotEmpty();
         }
 
         @Test
-        void generatedSurnamesList_NotEmpty() {
+        void generatedSurnamesList_NotEmpty() throws IOException {
             List<String> dataFromFile = generator.getDataFromFile("surnames_woman.csv", SurnameCSV.class);
             assertThat(dataFromFile).isNotEmpty();
         }
@@ -127,6 +144,7 @@ class CustomerGeneratorTest {
 
             assertEquals(Gender.MALE, gender);
         }
+
         @Test
         void penultimateDigitFromPeselNumberEven_genderFemale() {
             String femalePeselNumber = "05050505585";

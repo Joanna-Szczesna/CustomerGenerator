@@ -18,13 +18,18 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.security.SecureRandom;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.Month;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 public class CustomerGenerator {
-    private final Map<Enum<Gender>, List<String>> names;
-    private final Map<Enum<Gender>, List<String>> surnames;
+    public static final int MAX_NUMBER = 100;
+    private final Map<Gender, List<String>> names;
+    private final Map<Gender, List<String>> surnames;
     private final List<String> allowedContactsMethods;
     private final HttpClient httpClient;
 
@@ -36,15 +41,12 @@ public class CustomerGenerator {
                 "privatePhoneNumber",
                 "businessPhoneNumber");
         this.httpClient = HttpClient.newHttpClient();
-        this.names = Map.of(
-                Gender.FEMALE, getDataFromFile("names_woman.csv", NameCSV.class),
-                Gender.MALE, getDataFromFile("names_man.csv", NameCSV.class));
-        this.surnames = Map.of(
-                Gender.FEMALE, getDataFromFile("surnames_woman.csv", SurnameCSV.class),
-                Gender.MALE, getDataFromFile("surnames_man.csv", SurnameCSV.class));
+        this.names = new HashMap<>();
+        this.surnames = new HashMap<>();
+
     }
 
-    List<String> getDataFromFile(String fileName, Class<?> type) {
+    List<String> getDataFromFile(String fileName, Class<?> type) throws IOException {
         CsvMapper mapper = new CsvMapper();
         CsvSchema schema = CsvSchema.emptySchema().withHeader();
 
@@ -53,64 +55,96 @@ public class CustomerGenerator {
 
         try (Reader reader = new FileReader(fileName)) {
             MappingIterator<CSV> iterator = oReader.readValues(reader);
-            while (iterator.hasNext() && attributes.size() < 100) {
+            while (iterator.hasNext() && attributes.size() < MAX_NUMBER) {
                 CSV current = iterator.next();
                 attributes.add(current);
                 System.out.println(current);
             }
-        } catch (FileNotFoundException e) {
-            if (type.getName().equals("pl.szczesnaj.generator.SurnameCSV")) {
-                return Arrays.asList(
-                        "Kot",
-                        "Mot",
-                        "Nowak",
-                        "Kowal",
-                        "Szklany",
-                        "Rad"
-                );
-            } else if (type.getName().equals("pl.szczesnaj.generator.NameCSV")) {
-                return Arrays.asList(
-                        "Ala",
-                        "Tola",
-                        "Ewa",
-                        "Natalka",
-                        "Jan",
-                        "Franek",
-                        "Bartek",
-                        "Jerzy"
-                );
-            }
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
 
         return attributes.stream().map(CSV::getAttribute).collect(Collectors.toList());
     }
 
     public void generate(int customersNumber) {
-        for (int i = 0; i < customersNumber; i++) {
-            String peselNum = generatePeselNumber(i);
-            Gender gender = getGenderFromPeselNumber(peselNum);
-            final Map<String, String> person = Map.of(
-                    "peselNumber", peselNum,
-                    "name", generateName(gender),
-                    "surname", generateSurname(gender));
 
-            String customerPayload = makePayload(person);
+        try {
+            this.names.put(Gender.FEMALE, getDataFromFile("names_woman.csv", NameCSV.class));
 
-            String location = addCustomer(customerPayload);
-            System.out.printf("Added customer: %s%n", location);
-
-            int quantity = getRandomNumber(2, 5);
-            String contactPayload = addContacts(quantity);
-            int statusCode = addContactsMethods(location, contactPayload);
-            System.out.printf("Added methods. Status Code: %s%n", statusCode);
+        } catch (IOException e) {
+            this.names.put(Gender.FEMALE, List.of("Tola", "Ola", "Lola"));
         }
+        try {
+            this.names.put(Gender.MALE, getDataFromFile("names_man.csv", NameCSV.class));
+
+        } catch (IOException e) {
+            this.names.put(Gender.MALE, List.of("Mieszko", "Boleslaw", "Kazimierz"));
+        }
+
+
+        try {
+            this.surnames.put(Gender.FEMALE, getDataFromFile("surnames_woman.csv", SurnameCSV.class));
+
+        } catch (IOException e) {
+            this.surnames.put(Gender.FEMALE, List.of("Kowalska", "Nowakowska", "Rada"));
+        }
+
+        try {
+            this.surnames.put(Gender.MALE, getDataFromFile("surnames_man.csv", SurnameCSV.class));
+        } catch (IOException e) {
+            this.surnames.put(Gender.MALE, List.of("Kowalski", "Nowakowski", "Rad"));
+        }
+        for (int y = 1900; y <= 2002; y += 20) {
+            int endPeriod = y+20;
+            System.out.println("--Years: "+ y + " - "+ endPeriod);
+            for (Gender genderEnum : Gender.values()) {
+                System.out.println("--"+genderEnum);
+                for (int i = 0; i < customersNumber; i++) {
+                    Gender gender = genderEnum;
+                    String name = generateName(gender);
+                    String surname = generateSurname(gender);
+
+
+                    long startInclusive = LocalDate.of(y, Month.JANUARY, 1).toEpochDay();
+                    long endExclusive = LocalDate.of(y + 20, Month.DECEMBER, 31).toEpochDay();
+                    long random = ThreadLocalRandom.current().nextLong(startInclusive, endExclusive);
+                    LocalDate randomDate = LocalDate.ofEpochDay(random);
+                    String date = randomDate.toString();
+                    int salary = new SecureRandom().nextInt(0, 10000-y);
+
+
+
+
+                    System.out.println("""
+                            INSERT INTO person (name, surname, birth_date, gender, salary)
+                            VALUES ("%s", "%s", "%s", "%s", "%d");
+                            """.formatted(name, surname, date, gender, salary));
+
+                }
+            }
+        }
+//        for (int i = 0; i < customersNumber; i++) {
+//            String peselNum = generatePeselNumber(i);
+//            Gender gender = getGenderFromPeselNumber(peselNum);
+//            final Map<String, String> person = Map.of(
+//                    "peselNumber", peselNum,
+//                    "name", generateName(gender),
+//                    "surname", generateSurname(gender));
+//
+//            String customerPayload = makePayload(person);
+//
+//            String location = addCustomer(customerPayload);
+//            System.out.printf("Added customer: %s%n", location);
+//
+//            int quantity = getRandomNumber(2, 5);
+//            String contactPayload = addContacts(quantity);
+//            int statusCode = addContactsMethods(location, contactPayload);
+//            System.out.printf("Added methods. Status Code: %s%n", statusCode);
+//        }
     }
-    Gender getGenderFromPeselNumber(String peselNumber){
+
+    Gender getGenderFromPeselNumber(String peselNumber) {
         int orderNumber = Integer.parseInt(peselNumber.substring(9, 10));
-        return orderNumber %2 ==0? Gender.FEMALE : Gender.MALE;
+        return orderNumber % 2 == 0 ? Gender.FEMALE : Gender.MALE;
     }
 
     private String addContacts(int quantity) {

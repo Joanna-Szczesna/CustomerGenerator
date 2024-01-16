@@ -1,4 +1,15 @@
+buildscript {
+    repositories {
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath 'com.github.johnrengelman:shadow:8.1.1'
+    }
+}
+
+
 plugins {
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
     id 'java'
 }
 
@@ -9,6 +20,7 @@ java {
 
 group 'pl.szczesnaj'
 version '1.0-SNAPSHOT'
+
 
 repositories {
     mavenCentral()
